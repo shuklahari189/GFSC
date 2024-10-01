@@ -1,14 +1,31 @@
 #include <windows.h>
+#define LocalPersist static
+#define GlobalVariable static
+#define Internal static
+
+// TODO: global for now
+GlobalVariable bool running;
 
 LRESULT Wndproc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
     LRESULT result = 0;
     switch (message)
     {
+    case WM_SIZE:
+    {
+        OutputDebugStringA("sized\n");
+    }
+    break;
+    case WM_ACTIVATEAPP:
+    {
+        OutputDebugStringA("active\n");
+    }
+    break;
     case WM_CLOSE:
     {
+        // TODO: handle this with a message for user ?
+        running = false;
         OutputDebugStringA("closed\n");
-        PostQuitMessage(0);
     }
     break;
     case WM_MOVING:
@@ -22,6 +39,14 @@ LRESULT Wndproc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
         HDC deviceContext = BeginPaint(window, &paint);
         
         EndPaint(window, &paint);
+    }
+    break;
+    case WM_DESTROY:
+    {
+
+        // TODO: handle this with an error,then recreate window ?
+        running = false;
+        OutputDebugStringA("Window Destroyed!\n");
     }
     break;
     default:
@@ -58,7 +83,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, PSTR commandLine,
     if (windowHandle)
     {
         MSG message;
-        while (true)
+        running = true;
+        while (running)
         {
             BOOL messageResult = GetMessageA(&message, 0, 0, 0);
             if (messageResult > 0)
@@ -74,7 +100,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, PSTR commandLine,
     }
     else
     {
-        // TODO:
+        // TODO: logging system ?
     }
 
     return 0;

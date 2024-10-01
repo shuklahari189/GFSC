@@ -5,7 +5,7 @@ if not EXIST build (
     mkdir build
     pushd build
     cl -Zi ../main.cpp /Feapp User32.lib
-    popd 
+    popd
 ) else (
 pushd build
 cl /Zi ../main.cpp /Feapp User32.lib
