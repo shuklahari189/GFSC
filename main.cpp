@@ -13,7 +13,6 @@ struct win32OffscreenBuffer
     int height;
     BITMAPINFO info;
     void *memory;
-    int bytesPerPixels;
     int pitch;
 };
 
@@ -74,11 +73,11 @@ win32ResizeDIBsection(win32OffscreenBuffer *buffer, int width, int height)
     buffer->info.bmiHeader.biPlanes = 1;
     buffer->info.bmiHeader.biBitCount = 32; // acutally need 24 buit for dword alignment 32
     buffer->info.bmiHeader.biCompression = BI_RGB;
-    buffer->bytesPerPixels = 4;
+    int bytesPerPixels = 4;
 
-    int bitmapMemorySize = buffer->width * buffer->height * buffer->bytesPerPixels;
+    int bitmapMemorySize = buffer->width * buffer->height * bytesPerPixels;
     buffer->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
-    buffer->pitch = buffer->width * buffer->bytesPerPixels;
+    buffer->pitch = buffer->width * bytesPerPixels;
 }
 
 Internal void
@@ -201,7 +200,7 @@ WinMain(HINSTANCE instance, HINSTANCE prevInstance, PSTR commandLine, int showCo
 
             renderWeirdGradient(globalBackBuffer, xOffset++, yOffset);
             win32WindowDimension dimensions = win32getWindowDimensions(window);
-            win32DisplayBufferInWindow(globalBackBuffer, deviceContext, dimensions.width, dimensions.height, 0, 0, dimensions.width, dimensions.height);
+            win32DisplayBufferInWindow(globalBackBuffer, deviceContext, dimensions.width, dimensions.height);
         }
     }
     else
