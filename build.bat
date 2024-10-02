@@ -4,10 +4,13 @@
 if not EXIST build (
     mkdir build
     pushd build
-    cl -Zi -FAsc ../main.cpp /Feapp User32.lib Gdi32.lib 
+    @REM setting stack size with -FSize
+    @REM cl -Zi -FAsc ../main.cpp /Feapp User32.lib Gdi32.lib -F4194304
+    cl -Zi -FAsc ../main.cpp /Feapp User32.lib Gdi32.lib
     popd
 ) else (
 pushd build
-cl /Zi -FAsc ../main.cpp /Feapp User32.lib Gdi32.lib 
+@REM cl /Zi -FAsc ../main.cpp /Feapp User32.lib Gdi32.lib -F4194304
+cl /Zi -FAsc ../main.cpp /Feapp User32.lib Gdi32.lib
 popd 
 )
