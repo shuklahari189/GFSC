@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <cstdint>
+#include <dsound.h>
 
 // signed types
 typedef int8_t int8;
@@ -86,7 +87,7 @@ win32ResizeDIBsection(win32OffscreenBuffer *buffer, int width, int height)
     int bytesPerPixels = 4;
 
     int bitmapMemorySize = buffer->width * buffer->height * bytesPerPixels;
-    buffer->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+    buffer->memory = VirtualAlloc(0, bitmapMemorySize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     buffer->pitch = buffer->width * bytesPerPixels;
 }
 
@@ -132,33 +133,31 @@ win32MainWindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
         OutputDebugStringA("moving\n");
     }
     break;
-
-    case WM_SYSKEYDOWN:
-    case WM_SYSKEYUP:
     case WM_KEYDOWN:
+    // commented below to not handle alt f4 for now
+    // case WM_SYSKEYDOWN:
+    // case WM_SYSKEYUP:
     case WM_KEYUP:
     {
-        bool wasDown = ((lParam & (1 << 30)) != 0);
-        bool isDown = ((lParam & (1 << 31)) == 0);
-        if (wasDown != isDown)
+        if ((lParam & (1 << 30)) == 0)
         {
-            if (wParam == 'D')
+            // if (wParam == 'W')
+            // {
+            //      w down
+            // }
+        }
+        else
+        {
+            if ((lParam & (1 << 31)) != 0)
             {
-                OutputDebugStringA("d: ");
-                if (isDown)
-                {
-                    OutputDebugStringA("IsDown ");
-                }
-                if (wasDown)
-                {
-                    OutputDebugStringA("WasDown ");
-                }
-                OutputDebugStringA("\n");
+                // if (wParam == 'W')
+                // {
+                //      w up
+                // }
             }
         }
     }
     break;
-
     case WM_PAINT:
     {
         PAINTSTRUCT paint;
@@ -189,6 +188,74 @@ win32MainWindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
     return result;
 }
 
+#define CREATE_DSOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef CREATE_DSOUND_CREATE(directSoundCreate);
+
+Internal void win32InitDSound(HWND window, int32 bufferSize, int32 SamplePerSecond)
+{
+    HMODULE dSoundLibrary = LoadLibraryA("dsound.dll");
+    if (dSoundLibrary)
+    {
+        directSoundCreate *DirectSoundCreate = (directSoundCreate *)GetProcAddress(dSoundLibrary, "DirectSoundCreate");
+
+        LPDIRECTSOUND directSound;
+        if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &directSound, 0)))
+        {
+            WAVEFORMATEX waveFormat;
+            waveFormat.wFormatTag = WAVE_FORMAT_PCM;
+            waveFormat.nChannels = 2;
+            waveFormat.nSamplesPerSec = SamplePerSecond;
+            waveFormat.wBitsPerSample = 16;
+            waveFormat.nBlockAlign = (waveFormat.nChannels * waveFormat.wBitsPerSample) / 8;
+            waveFormat.nAvgBytesPerSec = waveFormat.nSamplesPerSec * waveFormat.nBlockAlign;
+            waveFormat.cbSize = 0;
+            if (SUCCEEDED(directSound->SetCooperativeLevel(window, DSSCL_PRIORITY)))
+            {
+                DSBUFFERDESC bufferDescription = {};
+                bufferDescription.dwSize = sizeof(bufferDescription);
+                bufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+
+                LPDIRECTSOUNDBUFFER primaryBuffer;
+                if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription, &primaryBuffer, 0)))
+                {
+
+                    if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat)))
+                    {
+                        OutputDebugStringA("Primary buffer format was set.\n");
+                    }
+                    else
+                    {
+                        // TODO: logging system
+                    }
+                }
+                else
+                {
+                    // TODO: logging system
+                }
+            }
+            else
+            {
+                // TODO: logging system
+            }
+
+            DSBUFFERDESC bufferDescription = {};
+            bufferDescription.dwSize = sizeof(bufferDescription);
+            bufferDescription.dwFlags = 0;
+            bufferDescription.dwBufferBytes = bufferSize;
+            bufferDescription.lpwfxFormat = &waveFormat;
+            LPDIRECTSOUNDBUFFER secondaryBuffer;
+            if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription, &secondaryBuffer, 0)))
+            {
+                OutputDebugStringA("Secondary buffer created succesfully.\n");
+            }
+        }
+        else
+        {
+            // TODO: logging system
+        }
+    }
+}
+
 int WINAPI
 WinMain(HINSTANCE instance, HINSTANCE prevInstance, PSTR commandLine, int showCode)
 {
@@ -217,6 +284,8 @@ WinMain(HINSTANCE instance, HINSTANCE prevInstance, PSTR commandLine, int showCo
     {
         HDC deviceContext = GetDC(window);
 
+        win32InitDSound(window, 48000, (48000 * sizeof(int16) * 2));
+
         globalRunning = true;
         int xOffset = 0;
         int yOffset = 0;
@@ -236,8 +305,6 @@ WinMain(HINSTANCE instance, HINSTANCE prevInstance, PSTR commandLine, int showCo
             renderWeirdGradient(&globalBackBuffer, xOffset, yOffset);
             win32WindowDimension dimensions = win32getWindowDimensions(window);
             win32DisplayBufferInWindow(&globalBackBuffer, deviceContext, dimensions.width, dimensions.height);
-
-            // xOffset++;
         }
     }
     else
