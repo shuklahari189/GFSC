@@ -47,7 +47,7 @@ static void createDisplayBuffer(DisplayBuffer *buffer, int width, int height)
     buffer->info.bmiHeader.biCompression = BI_RGB;
     uint8 bytesPerPixels = 4;
     uint32 bitmapMemroySize = width * height * bytesPerPixels;
-    buffer->memory = VirtualAlloc(0, bitmapMemroySize, MEM_COMMIT, PAGE_READWRITE);
+    buffer->memory = VirtualAlloc(0, bitmapMemroySize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     buffer->pitch = width * bytesPerPixels;
 }
 
@@ -124,11 +124,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE preveInstance, PSTR arguments, 
                                   CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
                                   0, 0, instance, 0);
 
-    createDisplayBuffer(&displayBuffer, 1920, 1080);
     if (window)
     {
         gameIsRunning = true;
         HDC deviceContext = GetDC(window);
+        createDisplayBuffer(&displayBuffer, 1920, 1080);
         while (gameIsRunning)
         {
             MSG message;
