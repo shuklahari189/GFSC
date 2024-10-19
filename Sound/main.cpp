@@ -1,10 +1,11 @@
 #include <windows.h>
 #include <dsound.h>
-#include <stdint.h>
-#include <math.h>
 
+#include <math.h>
 #define Pi32 3.14159265359f
 
+// standard type defines
+#include <stdint.h>
 typedef int8_t int8;
 typedef uint8_t uint8;
 typedef int16_t int16;
@@ -15,9 +16,24 @@ typedef int bool32;
 typedef float real32;
 typedef double real64;
 
+struct SoundOutput
+{
+    int samplesPerSecond;
+    int toneHz;
+    int16 toneVolume;
+    uint32 runningSampleIndex;
+    int wavePeriod;
+    int bytesPerSample;
+    int secondaryBufferSize;
+    real32 tsine;
+    int latencySampleCount;
+};
+
 static LPDIRECTSOUNDBUFFER globalSecondaryBuffer;
+
 #define CREATE_DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
 typedef CREATE_DIRECT_SOUND_CREATE(direct_sound_create);
+
 static void initDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
 {
     HMODULE dSound = LoadLibraryA("dsound.dll");
@@ -43,7 +59,7 @@ static void initDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
                 LPDIRECTSOUNDBUFFER primaryBuffer;
                 if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription, &primaryBuffer, 0)))
                 {
-                    if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat)))
+                    if (SUCCEEDED(primaryBuffer->SetFormat(&waveFormat))) // *** THIS HERE **** [no reason, not so important just defined this way]
                     {
                         OutputDebugStringA("Succeeded setting primary buffer format.\n");
                     }
@@ -54,7 +70,7 @@ static void initDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
             bufferDescription.dwSize = sizeof(bufferDescription);
             bufferDescription.dwFlags = 0;
             bufferDescription.dwBufferBytes = bufferSize;
-            bufferDescription.lpwfxFormat = &waveFormat;
+            bufferDescription.lpwfxFormat = &waveFormat; // *** WHY THIS HERE **** [no reason, not so important just defined this way]
             if (SUCCEEDED(directSound->CreateSoundBuffer(&bufferDescription, &globalSecondaryBuffer, 0)))
             {
                 OutputDebugStringA("Succeeded creating  secondary buffer.\n");
@@ -62,16 +78,7 @@ static void initDSound(HWND window, int32 samplesPerSecond, int32 bufferSize)
         }
     }
 }
-struct SoundOutput
-{
-    int samplesPerSecond;
-    int toneHz;
-    int16 toneVolume;
-    uint32 runningSampleIndex;
-    int wavePeriod;
-    int bytesPerSample;
-    int secondaryBufferSize;
-};
+
 static void fillSoundBuffer(SoundOutput *soundOutput, DWORD byteToLock, DWORD bytesToWrite)
 {
     void *region1;
@@ -84,12 +91,12 @@ static void fillSoundBuffer(SoundOutput *soundOutput, DWORD byteToLock, DWORD by
         int16 *sampleOut = (int16 *)region1;
         for (DWORD sampleIndex = 0; sampleIndex < region1SampleCount; sampleIndex++)
         {
-            real32 t = 2.0f * Pi32 * (real32)soundOutput->runningSampleIndex / (real32)soundOutput->wavePeriod;
-            real32 sinValue = sinf(t);
+            real32 sinValue = sinf(soundOutput->tsine);
             int16 sampleValue = (int16)(sinValue * soundOutput->toneVolume);
             *sampleOut++ = sampleValue;
             *sampleOut++ = sampleValue;
 
+            soundOutput->tsine += 2.0f * Pi32 / (real32)soundOutput->wavePeriod;
             ++soundOutput->runningSampleIndex;
         }
 
@@ -97,12 +104,12 @@ static void fillSoundBuffer(SoundOutput *soundOutput, DWORD byteToLock, DWORD by
         sampleOut = (int16 *)region2;
         for (DWORD sampleIndex = 0; sampleIndex < region2SampleCount; sampleIndex++)
         {
-            real32 t = 2.0f * Pi32 * (real32)soundOutput->runningSampleIndex / (real32)soundOutput->wavePeriod;
-            real32 sinValue = sinf(t);
+            real32 sinValue = sinf(soundOutput->tsine);
             int16 sampleValue = (int16)(sinValue * soundOutput->toneVolume);
             *sampleOut++ = sampleValue;
             *sampleOut++ = sampleValue;
 
+            soundOutput->tsine += 2.0f * Pi32 / (real32)soundOutput->wavePeriod;
             ++soundOutput->runningSampleIndex;
         }
 
@@ -123,6 +130,7 @@ LRESULT CALLBACK windowCallback(HWND window, UINT message, WPARAM wParam, LPARAM
     }
     return DefWindowProcA(window, message, wParam, lParam);
 }
+
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE preveInstance, PSTR arguments, int showCode)
 {
     WNDCLASSA windowClass = {};
@@ -139,15 +147,19 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE preveInstance, PSTR arguments, 
     if (window)
     {
         SoundOutput soundOutput = {};
-        soundOutput.toneVolume = 3000;
-        soundOutput.samplesPerSecond = 48000;
-        soundOutput.toneHz = 256;
-        soundOutput.runningSampleIndex = 0;
-        soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.toneHz;
-        soundOutput.bytesPerSample = sizeof(int16) * 2;
-        soundOutput.secondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample;
+        soundOutput.samplesPerSecond = 48000;                                                        // 48 khz = 48000 samples per second
+        soundOutput.toneHz = 256;                                                                    // no of samples between (Two peeks) theoratical
+        soundOutput.toneVolume = 3000;                                                               // max value [lower than (2 ^ 16 - 1) =  65535]
+        soundOutput.runningSampleIndex = 0;                                                          // incremented every [left right] = 1 sample filled
+        soundOutput.wavePeriod = soundOutput.samplesPerSecond / soundOutput.toneHz;                  // 48000 / 256 = 187 no of samples between (Two peeks) in actual buffer
+        soundOutput.bytesPerSample = sizeof(int16) * 2;                                              // [left(2byte) right(2byte)] = 4bytes
+        soundOutput.secondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample; // 48000 * 4bytes
+        soundOutput.latencySampleCount = soundOutput.samplesPerSecond / 15;
+
         initDSound(window, soundOutput.samplesPerSecond, soundOutput.secondaryBufferSize);
-        fillSoundBuffer(&soundOutput, 0, soundOutput.secondaryBufferSize);
+
+        fillSoundBuffer(&soundOutput, 0, (soundOutput.latencySampleCount * soundOutput.bytesPerSample));
+
         globalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
         gameIsRunning = true;
@@ -164,25 +176,23 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE preveInstance, PSTR arguments, 
                 DispatchMessageA(&message);
             }
 
+            // offset, in bytes, from the start of the buffer , the current play position
             DWORD playCursor;
             DWORD writeCursor;
             if (SUCCEEDED(globalSecondaryBuffer->GetCurrentPosition(&playCursor, &writeCursor)))
             {
+                // Offset, in bytes, from the start of the buffer to where the lock begins.
                 DWORD byteToLock = (soundOutput.runningSampleIndex * soundOutput.bytesPerSample) % soundOutput.secondaryBufferSize;
-                DWORD bytesToWrite;
-                // if (byteToLock == playCursor)
-                // {
-                //     bytesToWrite = 0;
-                // }
-                // else 
-                if (byteToLock > playCursor)
+                DWORD targetCursor = (playCursor + (soundOutput.latencySampleCount * soundOutput.bytesPerSample)) % soundOutput.secondaryBufferSize;
+                DWORD bytesToWrite; // number of bytes to be filled
+                if (byteToLock > targetCursor)
                 {
                     bytesToWrite = (soundOutput.secondaryBufferSize - byteToLock);
-                    bytesToWrite += playCursor;
+                    bytesToWrite += targetCursor;
                 }
                 else
                 {
-                    bytesToWrite = playCursor - byteToLock;
+                    bytesToWrite = targetCursor - byteToLock;
                 }
                 fillSoundBuffer(&soundOutput, byteToLock, bytesToWrite);
             }
