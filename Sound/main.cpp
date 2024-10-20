@@ -155,11 +155,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE preveInstance, PSTR arguments, 
         soundOutput.bytesPerSample = sizeof(int16) * 2;                                              // [left(2byte) right(2byte)] = 4bytes
         soundOutput.secondaryBufferSize = soundOutput.samplesPerSecond * soundOutput.bytesPerSample; // 48000 * 4bytes
         soundOutput.latencySampleCount = soundOutput.samplesPerSecond / 15;
-
         initDSound(window, soundOutput.samplesPerSecond, soundOutput.secondaryBufferSize);
-
         fillSoundBuffer(&soundOutput, 0, (soundOutput.latencySampleCount * soundOutput.bytesPerSample));
-
         globalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
         gameIsRunning = true;
