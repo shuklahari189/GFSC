@@ -1,6 +1,3 @@
-#include <windows.h>
-#include <dsound.h>
-#include <math.h>
 #include <stdint.h>
 
 typedef int32_t bool32;
@@ -21,10 +18,17 @@ typedef double real64;
 #define internal static
 #define globalVariable static
 
+#include "handmade.h"
+#include "handmade.cpp"
+
+#include <windows.h>
+#include <dsound.h>
+#include <math.h>
+
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter);
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
-struct win32offscreenbuffer
+struct win32offscreenBuffer
 {
     BITMAPINFO info;
     void *memory;
@@ -53,7 +57,7 @@ struct win32soundOutput
 };
 
 globalVariable bool32 globalRunning;
-globalVariable win32offscreenbuffer globalBackBuffer;
+globalVariable win32offscreenBuffer globalBackBuffer;
 globalVariable LPDIRECTSOUNDBUFFER globalSecondaryBuffer;
 globalVariable bool32 isWDown;
 globalVariable bool32 isSDown;
@@ -153,26 +157,7 @@ win32getWindowDimensions(HWND window)
 }
 
 internal void
-renderWeirdGradient(win32offscreenbuffer *buffer, int xOffset, int yOffset)
-{
-
-    uint8 *row = (uint8 *)buffer->memory;
-    for (int y = 0; y < buffer->height; y++)
-    {
-        uint32 *pixel = (uint32 *)row;
-        for (int x = 0; x < buffer->width; x++)
-        {
-            uint8 r = 0;
-            uint8 g = (uint8)x + xOffset;
-            uint8 b = (uint8)y + yOffset;
-            *pixel++ = (r << 16) | (g << 8) | b;
-        }
-        row += buffer->pitch;
-    }
-}
-
-internal void
-win32resizeDIBsection(win32offscreenbuffer *buffer, int width, int height)
+win32resizeDIBsection(win32offscreenBuffer *buffer, int width, int height)
 {
     if (buffer->memory)
     {
@@ -196,7 +181,7 @@ win32resizeDIBsection(win32offscreenbuffer *buffer, int width, int height)
 }
 
 internal void
-win32displayBufferInWindow(win32offscreenbuffer *buffer, HDC deviceContext, int windowWidth, int windowHeight)
+win32displayBufferInWindow(win32offscreenBuffer *buffer, HDC deviceContext, int windowWidth, int windowHeight)
 {
     // TODO: Aspect ratio correction
     StretchDIBits(deviceContext,
@@ -258,7 +243,6 @@ win32mainWindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
         PAINTSTRUCT ps;
         HDC deviceContext = BeginPaint(window, &ps);
 
-        renderWeirdGradient(&globalBackBuffer, 0, 0);
         win32windowDimension windowDimension = win32getWindowDimensions(window);
         win32displayBufferInWindow(&globalBackBuffer, deviceContext, windowDimension.width, windowDimension.height);
 
@@ -324,7 +308,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE prevInstance, PSTR commandLine,
                 DispatchMessageA(&message);
             }
 
-            renderWeirdGradient(&globalBackBuffer, xOffset, yOffset);
+            gameOffscreenBuffer buffer = {};
+            buffer.memory = globalBackBuffer.memory;
+            buffer.width = globalBackBuffer.width;
+            buffer.height = globalBackBuffer.height;
+            buffer.pitch = globalBackBuffer.pitch;
+            gameUpdateAndRender(&buffer, xOffset, yOffset);
 
             if (isWDown)
             {
