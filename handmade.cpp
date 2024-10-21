@@ -26,6 +26,27 @@ typedef double real64;
 #endif
 
 internal void
+gameOutputSound(gameSoundOutputBuffer *soundBuffer, int toneHz)
+{
+    localPersist real32 tSin;
+    int16 toneVolume = 16000;
+    int wavePeriod = soundBuffer->samplesPerSecond / toneHz;
+
+    int16 *sampleOut = soundBuffer->samples;
+    for (int sampleIndex = 0;
+         sampleIndex < soundBuffer->sampleCount;
+         sampleIndex++)
+    {
+        real32 sinValue = sinf(tSin);
+        int16 sampleValue = (int16)(sinValue * toneVolume);
+        *sampleOut++ = sampleValue;
+        *sampleOut++ = sampleValue;
+
+        tSin += 2.0f * pi32 * 1.0f / (real32)wavePeriod;
+    }
+}
+
+internal void
 renderWeirdGradient(gameOffscreenBuffer *buffer, int xOffset, int yOffset)
 {
 
@@ -44,7 +65,8 @@ renderWeirdGradient(gameOffscreenBuffer *buffer, int xOffset, int yOffset)
     }
 }
 
-internal void gameUpdateAndRender(gameOffscreenBuffer *buffer, int xOffset, int yOffset)
+internal void gameUpdateAndRender(gameOffscreenBuffer *buffer, int xOffset, int yOffset, gameSoundOutputBuffer *soundBuffer, int toneHz)
 {
+    gameOutputSound(soundBuffer, toneHz);
     renderWeirdGradient(buffer, xOffset, yOffset);
 }

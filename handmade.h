@@ -1,4 +1,5 @@
 #pragma once
+
 // MAKE THIS O
 #if 1
 #include <math.h>
@@ -32,4 +33,11 @@ struct gameOffscreenBuffer
     int pitch;
 };
 
-internal void gameUpdateAndRender(gameOffscreenBuffer *buffer, int xOffset, int yOffset);
+struct gameSoundOutputBuffer
+{
+    int16 *samples;
+    int samplesPerSecond;
+    int sampleCount;
+};
+
+internal void gameUpdateAndRender(gameOffscreenBuffer *buffer, int xOffset, int yOffset, gameSoundOutputBuffer *soundBuffer);
