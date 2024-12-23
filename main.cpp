@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdint.h>
+#include <xinput.h>
 
 #define internal static
 #define local_persit static
@@ -33,6 +34,44 @@ struct win32WindowDimensions
 global_variable int globalRunning;
 global_variable win32OffScreenBuffer globalBackBuffer;
 
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+typedef X_INPUT_GET_STATE(x_input_get_state);
+X_INPUT_GET_STATE(XInputGetStateStub)
+{
+    return 0;
+}
+global_variable x_input_get_state *XInputGetState_ = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_INPUT_SET_STATE(x_input_set_state);
+X_INPUT_SET_STATE(XInputSetStateStub)
+{
+    return 0;
+}
+global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
+
+#define XInputSetState XInputSetState_
+
+internal void
+win32loadXInput()
+{
+    HMODULE xInputLibrary = LoadLibraryA("xinput1_3.dll");
+    if (xInputLibrary)
+    {
+        XInputGetState = (x_input_get_state *)GetProcAddress(xInputLibrary, "XInputGetState");
+        if (!XInputGetState)
+        {
+            XInputGetState = XInputGetStateStub;
+        }
+        XInputSetState = (x_input_set_state *)GetProcAddress(xInputLibrary, "XInputSetState");
+        if (!XInputSetState)
+        {
+            XInputSetState = XInputSetStateStub;
+        }
+    }
+}
+
 internal win32WindowDimensions
 win32GetWindowDimension(HWND window)
 {
@@ -45,22 +84,22 @@ win32GetWindowDimension(HWND window)
 }
 
 internal void
-renderWeirdGradient(win32OffScreenBuffer buffer, int xOffset, int yOffset)
+renderWeirdGradient(win32OffScreenBuffer *buffer, int xOffset, int yOffset)
 {
-    uint8 *row = (uint8 *)buffer.memory;
+    uint8 *row = (uint8 *)buffer->memory;
     for (int y = 0;
-         y < buffer.height;
+         y < buffer->height;
          y++)
     {
         uint32 *pixel = (uint32 *)row;
         for (int x = 0;
-             x < buffer.width;
+             x < buffer->width;
              x++)
         {
             //            red              green                      blue
             *pixel++ = (0) << 16 | (uint8(x + xOffset) << 8) | uint8(y + yOffset);
         }
-        row += buffer.pitch;
+        row += buffer->pitch;
     }
 }
 
@@ -89,18 +128,18 @@ win32ResizeDIBSection(win32OffScreenBuffer *buffer, int width, int height)
 }
 
 internal void
-win32DisplayBufferInWindow(HDC deviceContext,
-                           int windowWidth, int windowHeight,
-                           win32OffScreenBuffer buffer)
+win32DisplayBufferInWindow(win32OffScreenBuffer *buffer, HDC deviceContext,
+                           int windowWidth, int windowHeight)
 {
     StretchDIBits(deviceContext,
                   0, 0, windowWidth, windowHeight,
-                  0, 0, buffer.width, buffer.height,
-                  buffer.memory, &buffer.info,
+                  0, 0, buffer->width, buffer->height,
+                  buffer->memory, &buffer->info,
                   DIB_RGB_COLORS, SRCCOPY);
 }
 
-LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+internal LRESULT CALLBACK
+win32MainWindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
@@ -118,13 +157,71 @@ LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
         globalRunning = false;
     }
         return 0;
+    case WM_SYSKEYDOWN:
+    case WM_SYSKEYUP:
+    case WM_KEYDOWN:
+    case WM_KEYUP:
+    {
+        uint32 vkCode = wParam;
+        int wasDown = ((lParam & (1 << 30)) != 0);
+        int isDown = ((lParam & (1 << 31)) == 0);
+        if (wasDown != isDown)
+        {
+            if (vkCode == 'W')
+            {
+            }
+            if (vkCode == 'S')
+            {
+            }
+            if (vkCode == 'A')
+            {
+            }
+            if (vkCode == 'D')
+            {
+            }
+            if (vkCode == 'E')
+            {
+            }
+            if (vkCode == 'Q')
+            {
+            }
+            if (vkCode == VK_UP)
+            {
+            }
+            if (vkCode == VK_DOWN)
+            {
+            }
+            if (vkCode == VK_RIGHT)
+            {
+            }
+            if (vkCode == VK_LEFT)
+            {
+            }
+            if (vkCode == VK_SPACE)
+            {
+            }
+            if (vkCode == VK_ESCAPE)
+            {
+                OutputDebugStringA("escape: ");
+                if (isDown)
+                {
+                    OutputDebugStringA("isDown ");
+                }
+                if (wasDown)
+                {
+                    OutputDebugStringA("wasDown ");
+                }
+                OutputDebugStringA("\n");
+            }
+        }
+    }
+        return 0;
     case WM_PAINT:
     {
         PAINTSTRUCT paint;
         HDC deviceContext = BeginPaint(window, &paint);
         win32WindowDimensions dimension = win32GetWindowDimension(window);
-        win32DisplayBufferInWindow(deviceContext, dimension.width, dimension.height,
-                                   globalBackBuffer);
+        win32DisplayBufferInWindow(&globalBackBuffer, deviceContext, dimension.width, dimension.height);
         EndPaint(window, &paint);
     }
         return 0;
@@ -134,6 +231,7 @@ LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
 
 int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCode)
 {
+    win32loadXInput();
     win32ResizeDIBSection(&globalBackBuffer, 1280, 720);
 
     WNDCLASSA windowClass = {};
@@ -168,10 +266,43 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLi
                     TranslateMessage(&message);
                     DispatchMessageA(&message);
                 }
-                renderWeirdGradient(globalBackBuffer, xOffset, yOffset);
+
+                for (DWORD controllerIndex = 0; controllerIndex < XUSER_MAX_COUNT; controllerIndex++)
+                {
+                    XINPUT_STATE controllerState;
+                    if (XInputGetState(controllerIndex, &controllerState) == ERROR_SUCCESS)
+                    {
+                        // controllerIndex'th controller is plugged in
+                        XINPUT_GAMEPAD *pad = &controllerState.Gamepad;
+                        int up = pad->wButtons & XINPUT_GAMEPAD_DPAD_UP;
+                        int down = pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN;
+                        int right = pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT;
+                        int left = pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT;
+                        int start = pad->wButtons & XINPUT_GAMEPAD_START;
+                        int back = pad->wButtons & XINPUT_GAMEPAD_BACK;
+                        int leftShoulder = pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER;
+                        int rightShoulder = pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+                        int aButton = pad->wButtons & XINPUT_GAMEPAD_A;
+                        int bButton = pad->wButtons & XINPUT_GAMEPAD_B;
+                        int xButton = pad->wButtons & XINPUT_GAMEPAD_X;
+                        int yButton = pad->wButtons & XINPUT_GAMEPAD_Y;
+
+                        int16 stickX = pad->sThumbLX;
+                        int16 stickY = pad->sThumbLY;
+
+                        xOffset += stickX >> 12;
+                        yOffset += stickY >> 12;
+                    }
+                    else
+                    {
+                        // controllerIndex'th controller is not plugged in
+                    }
+                }
+
+                renderWeirdGradient(&globalBackBuffer, xOffset, yOffset);
 
                 win32WindowDimensions dimension = win32GetWindowDimension(window);
-                win32DisplayBufferInWindow(deviceContext, dimension.width, dimension.height, globalBackBuffer);
+                win32DisplayBufferInWindow(&globalBackBuffer, deviceContext, dimension.width, dimension.height);
                 ++xOffset;
             }
         }
