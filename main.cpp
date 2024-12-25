@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <xinput.h>
 #include <dsound.h>
+#include <stdio.h>
 #include <math.h>
 
 #define Pi32 3.14159265359
@@ -386,6 +387,10 @@ win32MainWindowCallback(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 
 int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLine, int showCode)
 {
+    LARGE_INTEGER perfCountFrequencyResult;
+    QueryPerformanceFrequency(&perfCountFrequencyResult);
+    int64 perfCountFrequency = perfCountFrequencyResult.QuadPart;
+
     win32loadXInput();
     win32ResizeDIBSection(&globalBackBuffer, 1280, 720);
 
@@ -424,6 +429,9 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLi
             globalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
             globalRunning = true;
+            LARGE_INTEGER lastCounter;
+            QueryPerformanceCounter(&lastCounter);
+            uint64 lastCycleCount = __rdtsc();
             while (globalRunning)
             {
                 if (globalwDown)
@@ -507,6 +515,22 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLi
 
                 win32WindowDimensions dimension = win32GetWindowDimension(window);
                 win32DisplayBufferInWindow(&globalBackBuffer, deviceContext, dimension.width, dimension.height);
+
+                uint64 endCycleCount = __rdtsc();
+                LARGE_INTEGER endCounter;
+                QueryPerformanceCounter(&endCounter);
+                uint64 cyclesElapsed = endCycleCount - lastCycleCount;
+                int64 counterElapsed = endCounter.QuadPart - lastCounter.QuadPart;
+                real64 msPerFrame = (((real64)counterElapsed * 1000.0f) / (real64)perfCountFrequency);
+                real64 FPS = (real64)perfCountFrequency / (real64)counterElapsed;
+                real64 MCPF = (real64)cyclesElapsed / (1000.0f * 1000.0f);
+
+                char buffer[256];
+                sprintf(buffer, "%.02fms/f, %.02ff/s, %.02fmc/f\n", msPerFrame, FPS, MCPF);
+                OutputDebugStringA(buffer);
+
+                lastCounter = endCounter;
+                lastCycleCount = endCycleCount;
             }
         }
     }
