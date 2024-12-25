@@ -1,30 +1,33 @@
-#include <windows.h>
 #include <stdint.h>
-#include <xinput.h>
-#include <dsound.h>
-#include <stdio.h>
-#include <math.h>
-
-#define Pi32 3.14159265359
 
 #define internal static
 #define local_persit static
 #define global_variable static
 
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
+#define Pi32 3.14159265359f
 
 typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
 
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
 typedef int32 bool32;
 
 typedef float real32;
 typedef double real64;
+
+#include "handmade.cpp"
+
+#include <windows.h>
+#include <stdio.h>
+#include <xinput.h>
+#include <dsound.h>
+#include <math.h>
 
 struct win32OffScreenBuffer
 {
@@ -216,26 +219,6 @@ win32GetWindowDimension(HWND window)
     result.width = clientRect.right - clientRect.left;
     result.height = clientRect.bottom - clientRect.top;
     return result;
-}
-
-internal void
-renderWeirdGradient(win32OffScreenBuffer *buffer, int xOffset, int yOffset)
-{
-    uint8 *row = (uint8 *)buffer->memory;
-    for (int y = 0;
-         y < buffer->height;
-         y++)
-    {
-        uint32 *pixel = (uint32 *)row;
-        for (int x = 0;
-             x < buffer->width;
-             x++)
-        {
-            //            red              green                      blue
-            *pixel++ = (0) << 16 | (uint8(x + xOffset) << 8) | uint8(y + yOffset);
-        }
-        row += buffer->pitch;
-    }
 }
 
 internal void
@@ -491,7 +474,12 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLi
                     }
                 }
 
-                renderWeirdGradient(&globalBackBuffer, xOffset, yOffset);
+                gameOffScreenBuffer buffer = {};
+                buffer.memory = globalBackBuffer.memory;
+                buffer.width = globalBackBuffer.width;
+                buffer.height = globalBackBuffer.height;
+                buffer.pitch = globalBackBuffer.pitch;
+                gameUpdateAndRender(&buffer, xOffset, yOffset);
 
                 DWORD playCursor;
                 DWORD writeCursor;
@@ -524,11 +512,11 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR commandLi
                 real64 msPerFrame = (((real64)counterElapsed * 1000.0f) / (real64)perfCountFrequency);
                 real64 FPS = (real64)perfCountFrequency / (real64)counterElapsed;
                 real64 MCPF = (real64)cyclesElapsed / (1000.0f * 1000.0f);
-
+#if 0
                 char buffer[256];
                 sprintf(buffer, "%.02fms/f, %.02ff/s, %.02fmc/f\n", msPerFrame, FPS, MCPF);
                 OutputDebugStringA(buffer);
-
+#endif
                 lastCounter = endCounter;
                 lastCycleCount = endCycleCount;
             }
