@@ -41,6 +41,7 @@ renderWeirdGradient(gameOffScreenBuffer *buffer, int xOffset, int yOffset)
 internal void
 gameUpdateAndRender(gameMemory *memory, gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer)
 {
+    ASSERT(((&input->controllers[0].terminator - &input->controllers[0].Buttons[0]) == ARRAY_COUNT(input->controllers[0].Buttons)));
     ASSERT(sizeof(gameState) <= memory->permanentStorageSize);
     gameState *gameSt = (gameState *)memory->permanentStorage;
     if (!memory->isInitialized)
@@ -59,21 +60,32 @@ gameUpdateAndRender(gameMemory *memory, gameInput *input, gameOffScreenBuffer *b
         memory->isInitialized = true;
     }
 
-    gameControllerInput *input0 = &input->controllers[0];
-    if (input0->isAnalog)
+    for (int controllerIndex = 0; controllerIndex < ARRAY_COUNT(input->controllers); controllerIndex++)
     {
-        gameSt->xOffset += (int)(4.0f * input0->endX);
-        gameSt->toneHz = 256 + (int)(120.0f * input0->endY);
-    }
-    else
-    {
-    }
+        gameControllerInput *controller = getController(input, controllerIndex);
+        if (controller->isAnalog)
+        {
+            gameSt->xOffset += (int)(4.0f * controller->stickAverageX);
+            gameSt->toneHz = 256 + (int)(120.0f * controller->stickAverageY);
+        }
+        else
+        {
+            if (controller->moveLeft.endedDown)
+            {
+                gameSt->xOffset -= 1;
+            }
+            if (controller->moveRight.endedDown)
+            {
+                gameSt->xOffset += 1;
+            }
+        }
 
-    // input.aButtonEndedDown;
-    // input.aButtonHalfTransitionCount;
-    if (input0->down.endedDown)
-    {
-        gameSt->xOffset += 1;
+        // input.aButtonEndedDown;
+        // input.aButtonHalfTransitionCount;
+        if (controller->actionDown.endedDown)
+        {
+            gameSt->yOffset += 1;
+        }
     }
 
     win32gameOutputSound(soundBuffer, gameSt->toneHz);

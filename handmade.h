@@ -67,39 +67,49 @@ struct gameButtonState
 
 struct gameControllerInput
 {
+    bool32 isConnected;
     bool32 isAnalog;
-
-    real32 startX;
-    real32 startY;
-
-    real32 minX;
-    real32 minY;
-
-    real32 maxX;
-    real32 maxY;
-
-    real32 endX;
-    real32 endY;
+    real32 stickAverageX;
+    real32 stickAverageY;
 
     union
     {
-        gameButtonState Buttons[6];
+        gameButtonState Buttons[12];
         struct
         {
-            gameButtonState up;
-            gameButtonState down;
-            gameButtonState left;
-            gameButtonState right;
+            gameButtonState moveUp;
+            gameButtonState moveDown;
+            gameButtonState moveLeft;
+            gameButtonState moveRight;
+
+            gameButtonState actionUp;
+            gameButtonState actionDown;
+            gameButtonState actionLeft;
+            gameButtonState actionRight;
+
             gameButtonState leftShoulder;
             gameButtonState rightShoulder;
+
+            gameButtonState start;
+            gameButtonState back;
+
+            // NOTE: all buttons must be added above this button
+            gameButtonState terminator;
         };
     };
 };
 
 struct gameInput
 {
-    gameControllerInput controllers[4];
+    gameControllerInput controllers[5];
 };
+
+inline gameControllerInput *getController(gameInput *input, int unsigned controllerIndex)
+{
+    ASSERT(controllerIndex < ARRAY_COUNT(input->controllers));
+    gameControllerInput *result = &input->controllers[controllerIndex];
+    return result;
+}
 
 struct gameMemory
 {
@@ -107,7 +117,7 @@ struct gameMemory
     uint64 permanentStorageSize;
     void *permanentStorage; // required to be zeroed at startup
     uint64 transientStorageSize;
-    void *transientStorage;
+    void *transientStorage; // required to be zeroed at startup
 };
 
 internal void gameUpdateAndRender(gameMemory *memory, gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer);
