@@ -56,6 +56,68 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPGUID lpGuid, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
+internal debugReadFileResult
+DEBUGPlatformReadEntireFile(char *fileName)
+{
+    debugReadFileResult result = {};
+
+    HANDLE fileHandle = CreateFileA(fileName, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+    if (fileHandle != INVALID_HANDLE_VALUE)
+    {
+        LARGE_INTEGER fileSize;
+        if (GetFileSizeEx(fileHandle, &fileSize))
+        {
+            uint32 fileSize32 = safeTruncateUInt32(fileSize.QuadPart);
+            result.contents = VirtualAlloc(0, fileSize.QuadPart, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+            if (result.contents)
+            {
+                DWORD bytesRead;
+                if (ReadFile(fileHandle, result.contents, fileSize32, &bytesRead, 0) && (fileSize32 == bytesRead))
+                {
+                    result.contentSize = fileSize32;
+                }
+                else
+                {
+                    DEBUGPlatformFreeFileMemory(result.contents);
+                    result.contents = 0;
+                }
+            }
+        }
+        CloseHandle(fileHandle);
+    }
+    return result;
+}
+
+internal void
+DEBUGPlatformFreeFileMemory(void *memory)
+{
+    if (memory)
+    {
+        VirtualFree(memory, 0, MEM_RELEASE);
+    }
+}
+
+internal bool32
+DEBUGPlatformWriteEntireFile(char *fileName, uint32 memorySize, void *memory)
+{
+    bool32 result = false;
+    HANDLE fileHandle = CreateFileA(fileName, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if (fileHandle != INVALID_HANDLE_VALUE)
+    {
+        DWORD bytesWritten;
+        if (WriteFile(fileHandle, memory, memorySize, &bytesWritten, 0))
+        {
+
+            result = (bytesWritten == memorySize);
+        }
+        else
+        {
+        }
+        CloseHandle(fileHandle);
+    }
+    return result;
+}
+
 internal void
 win32clearBuffer(win32SoundOutput *soundOutput)
 {

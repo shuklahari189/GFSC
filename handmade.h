@@ -19,11 +19,30 @@
 #define ASSERT(expression)
 #endif
 
-#define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 #define KILOBYTES(value) ((value) * 1024LL)
 #define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
 #define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
 #define TERABYTES(value) (GIGABYTES(value) * 1024LL)
+#define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
+
+inline uint32
+safeTruncateUInt32(uint64 value)
+{
+    ASSERT(value <= 0xffffffff);
+    uint32 value32 = (uint32)value;
+    return value32;
+}
+
+#if HANDMADE_INTERNAL
+struct debugReadFileResult
+{
+    uint32 contentSize;
+    void *contents;
+};
+internal debugReadFileResult DEBUGPlatformReadEntireFile(char *fileName);
+internal void DEBUGPlatformFreeFileMemory(void *memory);
+internal bool32 DEBUGPlatformWriteEntireFile(char *fileName, uint32 memorySize, void *memory);
+#endif
 
 struct gameOffScreenBuffer
 {
