@@ -39,17 +39,23 @@ renderWeirdGradient(gameOffScreenBuffer *buffer, int xOffset, int yOffset)
 }
 
 internal void
-gameUpdateAndRender(gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer)
+gameUpdateAndRender(gameMemory *memory, gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer)
 {
-    local_persit int toneHz = 256;
-    local_persit int xOffset = 0;
-    local_persit int yOffset = 0;
+    ASSERT(sizeof(gameState) <= memory->permanentStorageSize);
+    gameState *gameSt = (gameState *)memory->permanentStorage;
+    if (!memory->isInitialized)
+    {
+        gameSt->toneHz = 256;
+
+        // TODO: more app.. to be done in platform layer
+        memory->isInitialized = true;
+    }
 
     gameControllerInput *input0 = &input->controllers[0];
     if (input0->isAnalog)
     {
-        xOffset += (int)(4.0f * input0->endX);
-        toneHz = 256 + (int)(120.0f * input0->endY);
+        gameSt->xOffset += (int)(4.0f * input0->endX);
+        gameSt->toneHz = 256 + (int)(120.0f * input0->endY);
     }
     else
     {
@@ -59,9 +65,9 @@ gameUpdateAndRender(gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutp
     // input.aButtonHalfTransitionCount;
     if (input0->down.endedDown)
     {
-        xOffset += 1;
+        gameSt->xOffset += 1;
     }
 
-    win32gameOutputSound(soundBuffer, toneHz);
-    renderWeirdGradient(buffer, xOffset, yOffset);
+    win32gameOutputSound(soundBuffer, gameSt->toneHz);
+    renderWeirdGradient(buffer, gameSt->xOffset, gameSt->yOffset);
 }

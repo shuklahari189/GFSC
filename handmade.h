@@ -1,6 +1,29 @@
 #pragma once
 
-#define arrayCount(array) (sizeof(array) / sizeof((array)[0]))
+/*
+    HANDMADE_INTERNAL:
+        0 - build for public release
+        1 - build for developer only
+    HANDMADE_SLOW:
+        0 - not slow code allowed
+        1 - slow code allowed
+*/
+
+#if HANDMADE_SLOW
+#define ASSERT(expression) \
+    if (!(expression))     \
+    {                      \
+        *(int *)0 = 0;     \
+    }
+#else
+#define ASSERT(expression)
+#endif
+
+#define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
+#define KILOBYTES(value) ((value) * 1024LL)
+#define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
+#define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
+#define TERABYTES(value) (GIGABYTES(value) * 1024LL)
 
 struct gameOffScreenBuffer
 {
@@ -59,4 +82,20 @@ struct gameInput
     gameControllerInput controllers[4];
 };
 
-internal void gameUpdateAndRender(gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer);
+struct gameMemory
+{
+    bool32 isInitialized;
+    uint64 permanentStorageSize;
+    void *permanentStorage; // required to be zeroed at startup
+    uint64 transientStorageSize;
+    void *transientStorage;
+};
+
+internal void gameUpdateAndRender(gameMemory *memory, gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer);
+
+struct gameState
+{
+    int toneHz;
+    int xOffset;
+    int yOffset;
+};
