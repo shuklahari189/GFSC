@@ -1,93 +1,94 @@
 #include "handmade.h"
 
 internal void
-win32gameOutputSound(gameSoundOutputBuffer *soundBuffer, int toneHz)
+gameOutputSound(game_sound_output_buffer *soundBuffer, int toneHz)
 {
-    local_persit real32 tSine;
+    local_persist real32 tSine;
     int16 toneVolume = 3000;
     int wavePeriod = soundBuffer->samplesPerSecond / toneHz;
 
-    int16 *sampleOut = soundBuffer->samples;
+    int16 *sampleOut = (int16 *)soundBuffer->samples;
     for (int sampleIndex = 0; sampleIndex < soundBuffer->sampleCount; sampleIndex++)
     {
-        real32 sinValue = sinf(tSine);
-        int16 sampleValue = (int16)(sinValue * toneVolume);
+        real32 sineValue = sinf(tSine);
+        int16 sampleValue = (int16)(sineValue * toneVolume);
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
-        tSine += ((real32)1.0f / (real32)wavePeriod) * 2.0f * Pi32;
+        tSine += 2.0f * Pi32 * ((real32)1.0f / (real32)wavePeriod);
     }
 }
 
 internal void
-renderWeirdGradient(gameOffScreenBuffer *buffer, int xOffset, int yOffset)
+renderWieredGradiant(game_offscreen_buffer *buffer, int xOffset, int yOffset)
 {
     uint8 *row = (uint8 *)buffer->memory;
-    for (int y = 0;
-         y < buffer->height;
-         y++)
+    for (int y = 0; y < buffer->height; y++)
     {
         uint32 *pixel = (uint32 *)row;
-        for (int x = 0;
-             x < buffer->width;
-             x++)
+        for (int x = 0; x < buffer->width; x++)
         {
-            //          red         green         blue
-            *pixel++ = (0 << 16) | (uint8(y + yOffset) << 8) | uint8(x + xOffset);
+            uint8 R = 0;
+            uint8 G = (uint8)(y + yOffset);
+            uint8 B = (uint8)(x + xOffset);
+            *pixel++ = uint32(R << 16) | uint32(G << 8) | uint32(B);
         }
         row += buffer->pitch;
     }
 }
 
 internal void
-gameUpdateAndRender(gameMemory *memory, gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer)
+gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffer *buffer, game_sound_output_buffer *soundBuffer)
 {
-    ASSERT(((&input->controllers[0].terminator - &input->controllers[0].Buttons[0]) == ARRAY_COUNT(input->controllers[0].Buttons)));
-    ASSERT(sizeof(gameState) <= memory->permanentStorageSize);
-    gameState *gameSt = (gameState *)memory->permanentStorage;
+    ASSERT((&input->controllers[0].terminator - &input->controllers[0].buttons[0]) == (ARRAY_COUNT(input->controllers[0].buttons)))
+    ASSERT(sizeof(game_state) <= memory->permanentStorageSize);
+
+    game_state *gameState = (game_state *)memory->permanentStorage;
     if (!memory->isInitialized)
     {
-        gameSt->toneHz = 256;
-
         char *fileName = __FILE__;
-        debugReadFileResult file = DEBUGPlatformReadEntireFile(fileName);
+
+        debug_read_file_result file = DEBUGPlatformReadEntireFile(fileName);
         if (file.contents)
         {
             DEBUGPlatformWriteEntireFile("test.out", file.contentSize, file.contents);
             DEBUGPlatformFreeFileMemory(file.contents);
         }
 
-        // TODO: more app.. to be done in platform layer
+        gameState->toneHz = 256;
+
         memory->isInitialized = true;
     }
 
     for (int controllerIndex = 0; controllerIndex < ARRAY_COUNT(input->controllers); controllerIndex++)
     {
-        gameControllerInput *controller = getController(input, controllerIndex);
+        game_controller_input *controller = getController(input, controllerIndex);
+
         if (controller->isAnalog)
         {
-            gameSt->xOffset += (int)(4.0f * controller->stickAverageX);
-            gameSt->toneHz = 256 + (int)(120.0f * controller->stickAverageY);
+            gameState->xOffset += (int)(4.0f * controller->stickAverageX);
+            gameState->toneHz = 256 + (int)(128.0f * controller->stickAverageY);
         }
         else
         {
             if (controller->moveLeft.endedDown)
             {
-                gameSt->xOffset -= 1;
+                gameState->xOffset -= 1;
             }
             if (controller->moveRight.endedDown)
             {
-                gameSt->xOffset += 1;
+                gameState->xOffset += 1;
             }
         }
 
-        // input.aButtonEndedDown;
-        // input.aButtonHalfTransitionCount;
         if (controller->actionDown.endedDown)
         {
-            gameSt->yOffset += 1;
+            gameState->toneHz -= 1;
+        }
+        if (controller->actionUp.endedDown)
+        {
+            gameState->toneHz += 1;
         }
     }
-
-    win32gameOutputSound(soundBuffer, gameSt->toneHz);
-    renderWeirdGradient(buffer, gameSt->xOffset, gameSt->yOffset);
+    gameOutputSound(soundBuffer, gameState->toneHz);
+    renderWieredGradiant(buffer, gameState->xOffset, gameState->yOffset);
 }

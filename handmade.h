@@ -1,19 +1,10 @@
 #pragma once
 
-/*
-    HANDMADE_INTERNAL:
-        0 - build for public release
-        1 - build for developer only
-    HANDMADE_SLOW:
-        0 - not slow code allowed
-        1 - slow code allowed
-*/
-
 #if HANDMADE_SLOW
 #define ASSERT(expression) \
     if (!(expression))     \
     {                      \
-        *(int *)0 = 0;     \
+        *((int *)0) = 0;   \
     }
 #else
 #define ASSERT(expression)
@@ -23,28 +14,36 @@
 #define MEGABYTES(value) (KILOBYTES(value) * 1024LL)
 #define GIGABYTES(value) (MEGABYTES(value) * 1024LL)
 #define TERABYTES(value) (GIGABYTES(value) * 1024LL)
+
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 
-inline uint32
-safeTruncateUInt32(uint64 value)
+internal inline uint32
+safeTruncateUInt64(uint64 value)
 {
-    ASSERT(value <= 0xffffffff);
-    uint32 value32 = (uint32)value;
-    return value32;
+    ASSERT(value < 0xffffffff);
+    uint32 result = (uint32)value;
+    return result;
 }
 
 #if HANDMADE_INTERNAL
-struct debugReadFileResult
+struct debug_read_file_result
 {
     uint32 contentSize;
     void *contents;
 };
-internal debugReadFileResult DEBUGPlatformReadEntireFile(char *fileName);
+internal debug_read_file_result DEBUGPlatformReadEntireFile(char *fileName);
 internal void DEBUGPlatformFreeFileMemory(void *memory);
 internal bool32 DEBUGPlatformWriteEntireFile(char *fileName, uint32 memorySize, void *memory);
 #endif
 
-struct gameOffScreenBuffer
+struct game_sound_output_buffer
+{
+    int16 *samples;
+    int sampleCount;
+    int samplesPerSecond;
+};
+
+struct game_offscreen_buffer
 {
     void *memory;
     int width;
@@ -52,20 +51,13 @@ struct gameOffScreenBuffer
     int pitch;
 };
 
-struct gameSoundOutputBuffer
+struct game_button_state
 {
-    int16 *samples;
-    int samplesPerSecond;
-    int sampleCount;
-};
-
-struct gameButtonState
-{
-    int halfTransitionCount;
+    int halfTransitionState;
     bool32 endedDown;
 };
 
-struct gameControllerInput
+struct game_controller_input
 {
     bool32 isConnected;
     bool32 isAnalog;
@@ -74,55 +66,55 @@ struct gameControllerInput
 
     union
     {
-        gameButtonState Buttons[12];
+        game_button_state buttons[12];
         struct
         {
-            gameButtonState moveUp;
-            gameButtonState moveDown;
-            gameButtonState moveLeft;
-            gameButtonState moveRight;
+            game_button_state moveUp;
+            game_button_state moveDown;
+            game_button_state moveLeft;
+            game_button_state moveRight;
 
-            gameButtonState actionUp;
-            gameButtonState actionDown;
-            gameButtonState actionLeft;
-            gameButtonState actionRight;
+            game_button_state actionUp;
+            game_button_state actionDown;
+            game_button_state actionLeft;
+            game_button_state actionRight;
 
-            gameButtonState leftShoulder;
-            gameButtonState rightShoulder;
+            game_button_state leftShoulder;
+            game_button_state rightShoulder;
 
-            gameButtonState start;
-            gameButtonState back;
+            game_button_state back;
+            game_button_state start;
 
-            // NOTE: all buttons must be added above this button
-            gameButtonState terminator;
+            game_button_state terminator;
         };
     };
 };
 
-struct gameInput
+struct game_input
 {
-    gameControllerInput controllers[5];
+    game_controller_input controllers[5];
 };
 
-inline gameControllerInput *getController(gameInput *input, int unsigned controllerIndex)
+inline game_controller_input *getController(game_input *input, int unsigned controllerIndex)
 {
     ASSERT(controllerIndex < ARRAY_COUNT(input->controllers));
-    gameControllerInput *result = &input->controllers[controllerIndex];
+    game_controller_input *result = &input->controllers[controllerIndex];
     return result;
 }
 
-struct gameMemory
+struct game_memory
 {
     bool32 isInitialized;
-    uint64 permanentStorageSize;
-    void *permanentStorage; // required to be zeroed at startup
     uint64 transientStorageSize;
-    void *transientStorage; // required to be zeroed at startup
+    void *transientStorage; // Required to be zeroed at startup
+    uint64 permanentStorageSize;
+    void *permanentStorage; // Required to be zeroed at startup
 };
 
-internal void gameUpdateAndRender(gameMemory *memory, gameInput *input, gameOffScreenBuffer *buffer, gameSoundOutputBuffer *soundBuffer);
+internal void
+gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffer *buffer, game_sound_output_buffer *soundBuffer);
 
-struct gameState
+struct game_state
 {
     int toneHz;
     int xOffset;
