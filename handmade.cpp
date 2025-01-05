@@ -15,6 +15,10 @@ gameOutputSound(game_sound_output_buffer *soundBuffer, int toneHz)
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         tSine += 2.0f * Pi32 * ((real32)1.0f / (real32)wavePeriod);
+        if (tSine > 2.0f * Pi32)
+        {
+            tSine -= 2.0f * Pi32;
+        }
     }
 }
 
@@ -37,7 +41,7 @@ renderWieredGradiant(game_offscreen_buffer *buffer, int xOffset, int yOffset)
 }
 
 internal void
-gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffer *buffer, game_sound_output_buffer *soundBuffer)
+gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffer *buffer)
 {
     ASSERT((&input->controllers[0].terminator - &input->controllers[0].buttons[0]) == (ARRAY_COUNT(input->controllers[0].buttons)))
     ASSERT(sizeof(game_state) <= memory->permanentStorageSize);
@@ -54,11 +58,10 @@ gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffe
             DEBUGPlatformFreeFileMemory(file.contents);
         }
 
-        gameState->toneHz = 256;
+        gameState->toneHz = 512;
 
         memory->isInitialized = true;
     }
-
     for (int controllerIndex = 0; controllerIndex < ARRAY_COUNT(input->controllers); controllerIndex++)
     {
         game_controller_input *controller = getController(input, controllerIndex);
@@ -66,7 +69,7 @@ gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffe
         if (controller->isAnalog)
         {
             gameState->xOffset += (int)(4.0f * controller->stickAverageX);
-            gameState->toneHz = 256 + (int)(128.0f * controller->stickAverageY);
+            gameState->toneHz = 512 + (int)(128.0f * controller->stickAverageY);
         }
         else
         {
@@ -89,6 +92,12 @@ gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffe
             gameState->toneHz += 1;
         }
     }
-    gameOutputSound(soundBuffer, gameState->toneHz);
     renderWieredGradiant(buffer, gameState->xOffset, gameState->yOffset);
+}
+
+internal void
+gameGetSoundSamples(game_memory *memory, game_sound_output_buffer *soundBuffer)
+{
+    game_state *gameState = (game_state *)memory->permanentStorage;
+    gameOutputSound(soundBuffer, gameState->toneHz);
 }
