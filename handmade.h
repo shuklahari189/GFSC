@@ -1,5 +1,29 @@
 #pragma once
 
+#include <stdint.h>
+#include <math.h>
+
+#define global_variable static
+#define local_persist static
+#define internal static
+
+#define Pi32 3.14159265359f
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+
+typedef int32 bool32;
+
+typedef float real32;
+typedef double real64;
+
 #if HANDMADE_SLOW
 #define ASSERT(expression) \
     if (!(expression))     \
@@ -17,7 +41,7 @@
 
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 
-internal inline uint32
+inline uint32
 safeTruncateUInt64(uint64 value)
 {
     ASSERT(value < 0xffffffff);
@@ -31,9 +55,15 @@ struct debug_read_file_result
     uint32 contentSize;
     void *contents;
 };
-internal debug_read_file_result DEBUGPlatformReadEntireFile(char *fileName);
-internal void DEBUGPlatformFreeFileMemory(void *memory);
-internal bool32 DEBUGPlatformWriteEntireFile(char *fileName, uint32 memorySize, void *memory);
+
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(void *memory)
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(char *fileName)
+typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platfrom_read_entire_file);
+
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) bool32 name(char *fileName, uint32 memorySize, void *memory)
+typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
 #endif
 
 struct game_sound_output_buffer
@@ -105,21 +135,34 @@ inline game_controller_input *getController(game_input *input, int unsigned cont
 struct game_memory
 {
     bool32 isInitialized;
+
     uint64 transientStorageSize;
     void *transientStorage; // Required to be zeroed at startup
+
     uint64 permanentStorageSize;
     void *permanentStorage; // Required to be zeroed at startup
+
+    debug_platform_free_file_memory *DEBUGPlatformFreeFileMemory;
+    debug_platfrom_read_entire_file *DEBUGPlatformReadEntireFile;
+    debug_platform_write_entire_file *DEBUGPlatformWriteEntireFile;
 };
 
-internal void
-gameUpdateAndRender(game_memory *memory, game_input *input, game_offscreen_buffer *buffer);
+#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *memory, game_input *input, game_offscreen_buffer *buffer)
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+GAME_UPDATE_AND_RENDER(gameUpdateAndRenderStub)
+{
+}
 
-internal void
-gameGetSoundSamples(game_memory *memory, game_sound_output_buffer *soundBuffer);
+#define GAME_GET_SOUND_SAMPLES(name) void name(game_memory *memory, game_sound_output_buffer *soundBuffer)
+typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
+GAME_GET_SOUND_SAMPLES(gameGetSoundSamplesStub)
+{
+}
 
 struct game_state
 {
     int toneHz;
     int xOffset;
     int yOffset;
+    real32 tSine;
 };
