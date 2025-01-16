@@ -6,8 +6,9 @@ set commonLinkerFlags= -incremental:no -opt:ref user32.lib gdi32.lib Winmm.lib
 if not EXIST build (mkdir build)
 pushd build
 @REM x64
-cl %commonCompilerFlags% ..\handmade.cpp -Fmhandmade.map /LD /link /DLL /EXPORT:gameGetSoundSamples /EXPORT:gameUpdateAndRender
-cl %commonCompilerFlags% ..\win32Handmade.cpp -Fmwin32Handmade.map /link %commonLinkerFlags%  
+del *.pdb > NUL 2>NUL
+cl %commonCompilerFlags% ..\code\handmade.cpp -Fmhandmade.map -LD /link -incremental:no -PDB:handmade_%Random%.pdb -EXPORT:gameGetSoundSamples -EXPORT:gameUpdateAndRender
+cl %commonCompilerFlags% ..\code\win32Handmade.cpp -Fmwin32Handmade.map /link %commonLinkerFlags%  
 @REM x86
 @REM cl %commonCompilerFlags% ..\win32Handmade.cpp /link -subsystem:windows,5.1 %commonLinkerFlags%  
 popd

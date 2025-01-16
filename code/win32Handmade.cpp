@@ -85,22 +85,30 @@ DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
     return result;
 }
 
-struct win32_game_code
+inline FILETIME
+win32GetLastWriteTime(char *fileName)
 {
-    HMODULE gameCodeDll;
-    game_update_and_render *UpdateAndRender;
-    game_get_sound_samples *GetSoundSamples;
+    FILETIME lastWriteTime = {};
 
-    bool32 isValid;
-};
+    WIN32_FIND_DATAA findData;
+    HANDLE findHandle = FindFirstFileA(fileName, &findData);
+    if (findHandle != INVALID_HANDLE_VALUE)
+    {
+        lastWriteTime = findData.ftLastWriteTime;
+        FindClose(findHandle);
+    }
+    return lastWriteTime;
+}
 
 internal win32_game_code
-win32LoadGameCode()
+win32LoadGameCode(char *sourceDllName, char *tempDllName)
 {
     win32_game_code result = {};
 
-    CopyFile("handmade.dll", "handmade_temp.dll", FALSE);
-    result.gameCodeDll = LoadLibraryA("handmade_temp.dll");
+    result.DLLLastWriteTime = win32GetLastWriteTime(sourceDllName);
+
+    CopyFile(sourceDllName, tempDllName, FALSE);
+    result.gameCodeDll = LoadLibraryA(tempDllName);
     if (result.gameCodeDll)
     {
         result.UpdateAndRender = (game_update_and_render *)GetProcAddress(result.gameCodeDll, "gameUpdateAndRender");
@@ -605,10 +613,43 @@ win32DebugSyncDisplay(win32_offscreen_buffer *backBuffer,
     }
 }
 
+internal void
+CatStrings(size_t sourceACount, char *sourceA, size_t sourceBCount, char *sourceB, size_t desCount, char *dest)
+{
+    for (int index = 0; index < sourceACount; index++)
+    {
+        *dest++ = *sourceA++;
+    }
+    for (int index = 0; index < sourceBCount; index++)
+    {
+        *dest++ = *sourceB++;
+    }
+    *dest++ = 0;
+}
+
 int CALLBACK
 WinMain(HINSTANCE instance, HINSTANCE prevInstance,
         PSTR commandLine, int showindowClassode)
 {
+    char exeFileName[MAX_PATH];
+    DWORD sizeofFileName = GetModuleFileNameA(0, exeFileName, sizeof(exeFileName));
+    char *onePastLastSlash = exeFileName + sizeofFileName;
+    for (char *scan = exeFileName; *scan; ++scan)
+    {
+        if (*scan == '\\')
+        {
+            onePastLastSlash = scan + 1;
+        }
+    }
+
+    char sourceGameCodeDllFileName[] = "handmade.dll";
+    char sourceGameCodeDllFullPath[MAX_PATH];
+    CatStrings(onePastLastSlash - exeFileName, exeFileName, sizeof(sourceGameCodeDllFileName) - 1, sourceGameCodeDllFileName, sizeof(sourceGameCodeDllFullPath), sourceGameCodeDllFullPath);
+
+    char tempGameCodeDllFileName[] = "handmade_temp.dll";
+    char tempGameCodeDllFullPath[MAX_PATH];
+    CatStrings(onePastLastSlash - exeFileName, exeFileName, sizeof(tempGameCodeDllFileName) - 1, tempGameCodeDllFileName, sizeof(tempGameCodeDllFullPath), tempGameCodeDllFullPath);
+
     LARGE_INTEGER perfCountFrequencyResult;
     QueryPerformanceFrequency(&perfCountFrequencyResult);
     globalPerfCountFrequency = perfCountFrequencyResult.QuadPart;
@@ -707,16 +748,15 @@ WinMain(HINSTANCE instance, HINSTANCE prevInstance,
 
                 uint64 lastCycleCount = __rdtsc();
 
-                win32_game_code game = win32LoadGameCode();
-                uint32 loadCounter = 0;
+                win32_game_code game = win32LoadGameCode(sourceGameCodeDllFullPath, tempGameCodeDllFullPath);
 
                 while (globalRunning)
                 {
-                    if (loadCounter++ > 120)
+                    FILETIME newDllWriteTime = win32GetLastWriteTime(sourceGameCodeDllFullPath);
+                    if (CompareFileTime(&newDllWriteTime, &game.DLLLastWriteTime) != 0)
                     {
                         win32UnloadGameCode(&game);
-                        game = win32LoadGameCode();
-                        loadCounter = 0;
+                        game = win32LoadGameCode(sourceGameCodeDllFullPath, tempGameCodeDllFullPath);
                     }
                     game_controller_input *oldKeyboardController = getController(oldInput, 0);
                     game_controller_input *newKeyboardController = getController(newInput, 0);
@@ -887,11 +927,11 @@ WinMain(HINSTANCE instance, HINSTANCE prevInstance,
                             audioLatencyBytes = unwrappedWriteCursor - playCursor;
                             audioLatencySeconds = ((real32)audioLatencyBytes / (real32)soundOutput.bytesPerSample) / (real32)soundOutput.samplesPerSeconds;
 
-                            char textBuffer[256];
-                            _snprintf_s(textBuffer, sizeof(textBuffer),
-                                        "BTL: %u,    TC: %u,       BTW: %u,   -  PC: %u,     WC: %u,      DELTA: %u,           (%fs)\n",
-                                        byteToLock, targetCursor, bytesToWrite, playCursor, writeCursor, audioLatencyBytes, audioLatencySeconds);
-                            OutputDebugStringA(textBuffer);
+                            // char textBuffer[256];
+                            // _snprintf_s(textBuffer, sizeof(textBuffer),
+                            //             "BTL: %u,    TC: %u,       BTW: %u,   -  PC: %u,     WC: %u,      DELTA: %u,           (%fs)\n",
+                            //             byteToLock, targetCursor, bytesToWrite, playCursor, writeCursor, audioLatencyBytes, audioLatencySeconds);
+                            // OutputDebugStringA(textBuffer);
 #endif
                             win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite, &soundBuffer);
                         }
@@ -908,19 +948,32 @@ WinMain(HINSTANCE instance, HINSTANCE prevInstance,
                         {
                             if (sleepIsGranular)
                             {
+                                // *****
                                 // DWORD sleepMs = (DWORD)(1000.0f * (targetSecondsPerFrame - secondsElapsedForFrame));
+                                // *****
+
+                                // *****
                                 DWORD sleepMs1tenth = (DWORD)((1000.0f * (targetSecondsPerFrame - secondsElapsedForFrame)) / 10.0f);
                                 DWORD sleepMs = sleepMs1tenth * 8;
+                                // *****
+
                                 if (sleepMs > 0)
                                 {
                                     Sleep(sleepMs);
                                 }
                             }
+
+                            // *****
                             // real32 testSecondsElapsedForFrame = win32GetSecondsElapsed(lastCounter, win32GetWallClock());
                             // if (testSecondsElapsedForFrame < targetSecondsPerFrame)
                             // {
                             // }
+                            // *****
+
+                            // *****
                             real32 secondsElapsedForFrame = win32GetSecondsElapsed(lastCounter, win32GetWallClock());
+                            // *****
+
                             while (secondsElapsedForFrame < targetSecondsPerFrame)
                             {
                                 secondsElapsedForFrame = win32GetSecondsElapsed(lastCounter, win32GetWallClock());

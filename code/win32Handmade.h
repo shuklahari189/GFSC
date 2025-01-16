@@ -38,3 +38,13 @@ struct win32_sound_output
     real32 tSine;
     int latencySampleCount;
 };
+
+struct win32_game_code
+{
+    HMODULE gameCodeDll;
+    FILETIME DLLLastWriteTime;
+    game_update_and_render *UpdateAndRender;
+    game_get_sound_samples *GetSoundSamples;
+
+    bool32 isValid;
+};
