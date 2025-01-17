@@ -43,12 +43,14 @@ struct win32_game_code
 {
     HMODULE gameCodeDll;
     FILETIME DLLLastWriteTime;
+
     game_update_and_render *UpdateAndRender;
     game_get_sound_samples *GetSoundSamples;
 
     bool32 isValid;
 };
 
+#define WIN32_STATE_FILE_NAME_COUNT MAX_PATH
 struct win32_state
 {
     uint64 totalSize;
@@ -58,4 +60,7 @@ struct win32_state
     int inputRecordingIndex;
     HANDLE playBackHandle;
     int inputPlayingIndex;
+
+    char exeFileName[WIN32_STATE_FILE_NAME_COUNT];
+    char *onePastLastExeFileNameSlash;
 };

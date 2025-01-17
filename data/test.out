@@ -8,7 +8,7 @@ gameOutputSound(game_state *gameState, game_sound_output_buffer *soundBuffer, in
     int16 *sampleOut = (int16 *)soundBuffer->samples;
     for (int sampleIndex = 0; sampleIndex < soundBuffer->sampleCount; sampleIndex++)
     {
-#if 0
+#if 1
         real32 sineValue = sinf(gameState->tSine);
         int16 sampleValue = (int16)(sineValue * toneVolume);
 #else
