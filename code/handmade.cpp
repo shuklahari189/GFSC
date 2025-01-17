@@ -5,12 +5,15 @@ gameOutputSound(game_state *gameState, game_sound_output_buffer *soundBuffer, in
 {
     int16 toneVolume = 3000;
     int wavePeriod = soundBuffer->samplesPerSecond / toneHz;
-
     int16 *sampleOut = (int16 *)soundBuffer->samples;
     for (int sampleIndex = 0; sampleIndex < soundBuffer->sampleCount; sampleIndex++)
     {
+#if 0
         real32 sineValue = sinf(gameState->tSine);
         int16 sampleValue = (int16)(sineValue * toneVolume);
+#else
+        int16 sampleValue = 0;
+#endif
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         gameState->tSine += 2.0f * Pi32 * ((real32)1.0f / (real32)wavePeriod);
@@ -39,6 +42,28 @@ renderWieredGradiant(game_offscreen_buffer *buffer, int xOffset, int yOffset)
     }
 }
 
+internal void
+renderPlayer(game_offscreen_buffer *buffer, int playerX, int playerY)
+{
+    uint8 *endOfBuffer = (uint8 *)buffer->memory +
+                         buffer->pitch * buffer->height;
+    uint32 color = 0x00000000;
+    int top = playerY;
+    int bottom = playerY + 10;
+    for (int x = playerX; x < playerX + 10; x++)
+    {
+        uint8 *pixel = ((uint8 *)buffer->memory + x * buffer->bytesPerPixel + top * buffer->pitch);
+        for (int y = top; y < bottom; y++)
+        {
+            if ((pixel >= buffer->memory) && ((pixel + 4) <= endOfBuffer))
+            {
+                *(uint32 *)pixel = color;
+            }
+            pixel += buffer->pitch;
+        }
+    }
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
 {
     ASSERT((&input->controllers[0].terminator - &input->controllers[0].buttons[0]) == (ARRAY_COUNT(input->controllers[0].buttons)))
@@ -58,6 +83,8 @@ extern "C" GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
 
         gameState->toneHz = 512;
         gameState->tSine = 0;
+        gameState->playerX = 100;
+        gameState->playerY = 100;
 
         memory->isInitialized = true;
     }
@@ -72,26 +99,41 @@ extern "C" GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
         }
         else
         {
+            int speed = 5;
             if (controller->moveLeft.endedDown)
             {
+                gameState->playerX -= speed;
                 gameState->xOffset -= 1;
             }
             if (controller->moveRight.endedDown)
             {
+                gameState->playerX += speed;
                 gameState->xOffset += 1;
+            }
+            if (controller->moveUp.endedDown)
+            {
+                gameState->playerY -= speed;
+            }
+            if (controller->moveDown.endedDown)
+            {
+                gameState->playerY += speed;
             }
         }
 
-        if (controller->actionDown.endedDown)
+        if (gameState->tJump > 0)
         {
-            gameState->toneHz -= 1;
+            gameState->playerY += (int)(5.0f * sinf(0.5f * Pi32 * gameState->tJump));
         }
+
         if (controller->actionUp.endedDown)
         {
-            gameState->toneHz += 1;
+            gameState->tJump = 4.0f;
+            // gameState->toneHz += 1;
         }
+        gameState->tJump -= 0.033f;
     }
     renderWieredGradiant(buffer, gameState->xOffset, gameState->yOffset);
+    renderPlayer(buffer, gameState->playerX, gameState->playerY);
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(gameGetSoundSamples)
