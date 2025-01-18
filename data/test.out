@@ -47,7 +47,7 @@ renderPlayer(game_offscreen_buffer *buffer, int playerX, int playerY)
 {
     uint8 *endOfBuffer = (uint8 *)buffer->memory +
                          buffer->pitch * buffer->height;
-    uint32 color = 0x00000000;
+    uint32 color = 0xffffffff;
     int top = playerY;
     int bottom = playerY + 10;
     for (int x = playerX; x < playerX + 10; x++)
@@ -74,11 +74,11 @@ extern "C" GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
     {
         char *fileName = __FILE__;
 
-        debug_read_file_result file = memory->DEBUGPlatformReadEntireFile(fileName);
+        debug_read_file_result file = memory->DEBUGPlatformReadEntireFile(thread, fileName);
         if (file.contents)
         {
-            memory->DEBUGPlatformWriteEntireFile("test.out", file.contentSize, file.contents);
-            memory->DEBUGPlatformFreeFileMemory(file.contents);
+            memory->DEBUGPlatformWriteEntireFile(thread, "test.out", file.contentSize, file.contents);
+            memory->DEBUGPlatformFreeFileMemory(thread, file.contents);
         }
 
         gameState->toneHz = 512;
@@ -134,6 +134,15 @@ extern "C" GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
     }
     renderWieredGradiant(buffer, gameState->xOffset, gameState->yOffset);
     renderPlayer(buffer, gameState->playerX, gameState->playerY);
+    renderPlayer(buffer, input->mouseX, input->mouseY);
+
+    for (int mouseButtonIndex = 0; mouseButtonIndex < ARRAY_COUNT(input->mouseButtons); mouseButtonIndex++)
+    {
+        if (input->mouseButtons[mouseButtonIndex].endedDown)
+        {
+            renderPlayer(buffer, (mouseButtonIndex + 1) * 100, 200);
+        }
+    }
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(gameGetSoundSamples)
